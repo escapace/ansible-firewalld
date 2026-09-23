@@ -1,0 +1,16 @@
+---
+
+skip_list:
+  - command-instead-of-shell
+  - experimental
+  - git-latest
+  - ignore-errors
+  - key-order
+  - name
+  - no-changed-when
+  - no-handler
+  - package-latest
+  - schema
+  - yaml[indentation]
+  - yaml[line-length]
+  - yaml[trailing-spaces]

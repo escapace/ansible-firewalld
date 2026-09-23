@@ -1,0 +1,65 @@
+assert_lefthook_installed: true
+colors: false
+source_dir: scripts/
+
+output:
+  - summary
+  - failure
+  - execution
+
+commit-msg:
+  commands:
+    'lint commit message':
+      run: pnpm exec commitlint --edit {1}
+
+pre-commit:
+  skip:
+    - merge
+    - rebase
+
+  commands:
+    ls-lint:
+      priority: 1
+      run: pnpm run ls-lint
+
+    syncpack:
+      glob: '{package.json,**/package.json,pnpm-lock.yaml}'
+      priority: 2
+      run: pnpm run syncpack
+      stage_fixed: true
+
+    pnpm-install:
+      glob: '{package.json,**/package.json,pnpm-lock.yaml}'
+      priority: 3
+      run: pnpm install
+      stage_fixed: true
+
+    uv-sync:
+      glob: '{uv.lock,pyproject.toml}'
+      priority: 3
+      run: uv sync
+      stage_fixed: true
+
+    eslint:
+      exclude:
+        - pnpm-lock.yaml
+      glob: '*.{js,mjs,cjs,ts,mts,cts,yml,yaml,json,toml}'
+      priority: 4
+      run: pnpm exec eslint --no-warn-ignored --fix {staged_files}
+      stage_fixed: true
+
+    prettier:
+      exclude:
+        - pnpm-lock.yaml
+      glob: '*.{js,mjs,cjs,ts,mts,cts,yml,yaml,json,md}'
+      priority: 5
+      run: pnpm exec prettier --no-error-on-unmatched-pattern --ignore-unknown --write {staged_files}
+      stage_fixed: true
+
+    ansible-lint:
+      exclude:
+        - pnpm-lock.yaml
+      glob: '*.{yaml,yml}'
+      priority: 6
+      run: uv run ansible-lint
+      stage_fixed: true

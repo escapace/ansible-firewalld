@@ -1,0 +1,41 @@
+{
+  "name": "@escapace/ansible-firewalld",
+  "version": "0.0.0",
+  "author": {
+    "name": "escapace",
+    "email": "opensource@escapace.com"
+  },
+  "bugs": "https://github.com/escapace/ansible-firewalld/issues",
+  "devDependencies": {
+    "@commitlint/cli": "21.2.2",
+    "@commitlint/config-conventional": "21.2.2",
+    "@escapace/syncpack-configuration": "0.3.0",
+    "@ls-lint/ls-lint": "2.3.1",
+    "eslint": "10.10.0",
+    "eslint-config-escapace": "5.20.4",
+    "lefthook": "2.1.12",
+    "prettier": "3.9.6",
+    "prettier-config-escapace": "1.2.2",
+    "syncpack": "15.3.3"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "onFail": "warn",
+      "version": "^11.20.0"
+    }
+  },
+  "homepage": "https://github.com/escapace/ansible-firewalld#readme",
+  "license": "Apache-2.0",
+  "private": true,
+  "repository": "escapace/ansible-firewalld",
+  "scripts": {
+    "format": "syncpack format && eslint --no-warn-ignored --fix && prettier --log-level warn --no-error-on-unmatched-pattern -uw .",
+    "lint": "ls-lint --config .ls-lint.yaml && eslint",
+    "ls-lint": "ls-lint --config .ls-lint.yaml",
+    "prepare": "lefthook install",
+    "syncpack": "syncpack fix && syncpack format"
+  },
+  "sideEffects": false,
+  "type": "module"
+}
