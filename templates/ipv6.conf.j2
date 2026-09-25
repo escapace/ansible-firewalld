@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+# Kernel receivers only. networkd users also need [IPv6AcceptRA] UseRedirect=no.
+# Slash separators preserve dots in interface names. default covers future links.
+net/ipv6/conf/all/accept_redirects = 0
+net/ipv6/conf/default/accept_redirects = 0
+net/ipv6/conf/*/accept_redirects = 0
+net/ipv6/conf/all/suppress_frag_ndisc = 1
+net/ipv6/conf/default/suppress_frag_ndisc = 1
+net/ipv6/conf/*/suppress_frag_ndisc = 1
+net/ipv6/icmp/echo_ignore_multicast = 1

@@ -1,0 +1,18 @@
+---
+firewalld_owned_files:
+  - path: /etc/firewalld/firewalld.conf
+    candidate: firewalld/firewalld.conf
+    template: firewalld.conf.j2
+    topic: firewalld reload
+  - path: /etc/firewalld/zones/public.xml
+    candidate: firewalld/zones/public.xml
+    template: public.xml.j2
+    topic: firewalld reload
+  - path: /etc/sysctl.d/90-firewalld-ipv4.conf
+    candidate: ipv4.conf
+    template: ipv4.conf.j2
+    topic: firewalld apply ipv4 sysctls
+  - path: /etc/sysctl.d/90-firewalld-ipv6.conf
+    candidate: ipv6.conf
+    template: ipv6.conf.j2
+    topic: firewalld apply ipv6 sysctls

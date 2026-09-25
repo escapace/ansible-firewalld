@@ -1,1 +1,56 @@
 ---
+- name: validate platform and uncoerced inputs
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.get('os_family') == 'RedHat'
+      - ansible_facts.get('distribution_major_version') == '10'
+      - firewalld_default_zone_target is string
+      - firewalld_strict_forward_ports is boolean
+      - firewalld_ipv6_rpfilter is string
+    fail_msg: this role requires gathered el10 facts and correctly typed inputs
+
+- name: install firewalld without activating it
+  ansible.builtin.package:
+    name: firewalld
+    state: present
+
+- name: create native configuration directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /etc/firewalld
+    - /etc/firewalld/zones
+    - /etc/firewalld/policies
+    - /etc/firewalld/services
+    - /etc/firewalld/ipsets
+
+- name: inspect installed validator
+  ansible.builtin.stat:
+    path: /usr/bin/firewall-offline-cmd
+  register: firewalld_validator
+
+- name: stage and publish installed configuration
+  ansible.builtin.include_tasks: configure.yaml
+  when: firewalld_validator.stat.executable | default(false)
+
+- name: report unprepared check mode limitation
+  ansible.builtin.debug:
+    msg: configuration publication and validation require the firewalld package; not validated in this check-mode run
+  when:
+    - ansible_check_mode
+    - not (firewalld_validator.stat.executable | default(false))
+
+- name: require the installed validator outside check mode
+  ansible.builtin.assert:
+    that: firewalld_validator.stat.executable | default(false)
+  when: not ansible_check_mode
+
+- name: enable firewalld at boot without changing service state
+  ansible.builtin.systemd_service:
+    name: firewalld.service
+    enabled: true
+  when: not ansible_check_mode

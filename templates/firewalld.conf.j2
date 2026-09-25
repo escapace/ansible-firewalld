@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+DefaultZone=public
+FirewallBackend=nftables
+CleanupOnExit=yes
+CleanupModulesOnExit=no
+FlushAllOnReload=yes
+ReloadPolicy=INPUT:DROP,FORWARD:DROP,OUTPUT:DROP
+NftablesTableOwner=yes
+NftablesFlowtable=off
+NftablesCounters=no
+LogDenied=off
+RFC3964_IPv4=yes
+IndividualCalls=no
+StrictForwardPorts={{ firewalld_strict_forward_ports | ternary('yes', 'no') }}
+IPv6_rpfilter={{ firewalld_ipv6_rpfilter }}

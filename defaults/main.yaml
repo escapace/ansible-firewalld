@@ -1,1 +1,4 @@
 ---
+firewalld_default_zone_target: DROP
+firewalld_strict_forward_ports: false
+firewalld_ipv6_rpfilter: loose

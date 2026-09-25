@@ -1,0 +1,14 @@
+---
+- name: validate assembled firewalld configuration read only
+  ansible.builtin.command:
+    argv:
+      - firewall-offline-cmd
+      - "--system-config={{ firewalld_validation_root | default('/etc/firewalld') }}"
+      - --check-config
+  register: firewalld_validation
+  changed_when: false
+  check_mode: false
+  failed_when: >-
+    firewalld_validation.rc != 0 or
+    firewalld_validation.stdout | trim | length > 0 or
+    firewalld_validation.stderr | trim | length > 0

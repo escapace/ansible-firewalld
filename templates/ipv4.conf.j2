@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+# Disable kernel Redirect processing on existing and future interfaces.
+# Slash separators preserve dots in interface names.
+net/ipv4/conf/all/accept_redirects = 0
+net/ipv4/conf/default/accept_redirects = 0
+net/ipv4/conf/*/accept_redirects = 0
+net/ipv4/icmp_echo_ignore_broadcasts = 1

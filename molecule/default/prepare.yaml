@@ -1,0 +1,33 @@
+---
+- name: check an unprepared image
+  hosts: all
+  tasks:
+    - name: install required systemd tooling
+      ansible.builtin.package:
+        name:
+          - systemd
+          - systemd-udev
+        state: present
+
+    - name: predict role changes before firewalld installation
+      ansible.builtin.command:
+        argv:
+          - ansible-playbook
+          - --inventory
+          - "{{ lookup('env', 'MOLECULE_INVENTORY_FILE') }}"
+          - "{{ playbook_dir }}/converge.yaml"
+          - --check
+      delegate_to: localhost
+      changed_when: false
+
+    - name: inspect unprepared publication
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/sysctl.d/90-firewalld-ipv4.conf
+        - /etc/sysctl.d/90-firewalld-ipv6.conf
+      register: firewalld_unprepared_files
+
+    - name: require no publication from check mode
+      ansible.builtin.assert:
+        that: not (firewalld_unprepared_files.results | map(attribute='stat.exists') | max)

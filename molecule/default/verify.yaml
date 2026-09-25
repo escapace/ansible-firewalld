@@ -1,0 +1,146 @@
+---
+- name: verify persistent image state
+  hosts: all
+  tasks:
+    - name: collect installed packages
+      ansible.builtin.package_facts:
+
+    - name: read permanent zone
+      ansible.builtin.slurp:
+        src: /etc/firewalld/zones/public.xml
+      register: firewalld_zone
+
+    - name: read boot enablement
+      ansible.builtin.command:
+        argv: [systemctl, is-enabled, firewalld.service]
+      register: firewalld_enabled
+      changed_when: false
+
+    - name: require baseline installation
+      ansible.builtin.assert:
+        that:
+          - "'firewalld' in ansible_facts.packages"
+          - firewalld_enabled.stdout == 'enabled'
+          - '''target="DROP"'' in (firewalld_zone.content | b64decode)'
+          - "'<forward' not in (firewalld_zone.content | b64decode)"
+          - '''name="ssh"'' not in (firewalld_zone.content | b64decode)'
+
+    - name: verify scoped ipv4 grants and persistent receiver settings
+      ansible.builtin.command:
+        argv: [python3, "-"]
+        stdin: |
+          from pathlib import Path
+          import stat
+          import xml.etree.ElementTree as ET
+
+          zone = ET.parse('/etc/firewalld/zones/public.xml').getroot()
+          assert zone.find('protocol') is None, 'unexpected protocol-wide grant'
+          rules = zone.findall("rule[@family='ipv4']")
+          assert [rule.find('icmp-type').get('name') for rule in rules] == [
+              'destination-unreachable', 'time-exceeded', 'parameter-problem',
+              'echo-request', 'echo-reply',
+          ], 'unexpected ipv4 icmp grants'
+          assert all(rule.find('accept') is not None for rule in rules)
+          path = Path('/etc/sysctl.d/90-firewalld-ipv4.conf')
+          assignments = [line for line in path.read_text().splitlines()
+                         if line and not line.startswith('#')]
+          assert assignments == [
+              'net/ipv4/conf/all/accept_redirects = 0',
+              'net/ipv4/conf/default/accept_redirects = 0',
+              'net/ipv4/conf/*/accept_redirects = 0',
+              'net/ipv4/icmp_echo_ignore_broadcasts = 1',
+          ], 'unexpected ipv4 sysctl assignments'
+          metadata = path.stat()
+          assert (metadata.st_uid, metadata.st_gid, stat.S_IMODE(metadata.st_mode)) == (0, 0, 0o644)
+      changed_when: false
+
+    - name: check no daemon was started
+      ansible.builtin.command:
+        argv: [pgrep, -x, firewalld]
+      register: firewalld_process
+      changed_when: false
+      failed_when: firewalld_process.rc != 1
+
+    - name: load handlers without changing persistent state
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+
+    - name: contribute an external native service
+      ansible.builtin.copy:
+        dest: /etc/firewalld/services/smoke-external.xml
+        content: '<service><port protocol="tcp" port="18443"/></service>'
+        mode: "0644"
+      notify: firewalld reload
+
+    - name: contribute an external native policy
+      ansible.builtin.copy:
+        dest: /etc/firewalld/policies/smoke-external.xml
+        content: '<policy target="CONTINUE"><ingress-zone name="public"/><egress-zone name="HOST"/><service name="smoke-external"/></policy>'
+        mode: "0644"
+      notify: firewalld reload
+
+    - name: validate consumer notifications while stopped
+      ansible.builtin.meta: flush_handlers
+
+    - name: validate input choices without publishing
+      ansible.builtin.command:
+        argv:
+          - ansible-playbook
+          - --inventory
+          - "{{ lookup('env', 'MOLECULE_INVENTORY_FILE') }}"
+          - "{{ playbook_dir }}/converge.yaml"
+          - --check
+          - --extra-vars
+          - "{{ {'firewalld_default_zone_target': 'REJECT', 'firewalld_strict_forward_ports': true, 'firewalld_ipv6_rpfilter': item} | to_json }}"
+      delegate_to: localhost
+      changed_when: false
+      loop: [strict, loose, strict-forward, loose-forward, "no"]
+
+    - name: exercise rejected configuration and typed inputs
+      ansible.builtin.include_tasks: tasks/reject.yaml
+      loop:
+        - malformed
+        - unresolved
+        - target
+        - boolean
+        - rpfilter
+      loop_control:
+        loop_var: firewalld_rejection_case
+
+    - name: publish reject mapping
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+      vars:
+        firewalld_default_zone_target: REJECT
+
+    - name: read reject zone
+      ansible.builtin.slurp:
+        src: /etc/firewalld/zones/public.xml
+      register: firewalld_reject_zone
+
+    - name: require native reject mapping
+      ansible.builtin.assert:
+        that: '''target="%%REJECT%%"'' in (firewalld_reject_zone.content | b64decode)'
+
+    - name: restore role defaults and preserve contributions
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+
+    - name: inspect external objects after reconvergence
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/firewalld/services/smoke-external.xml
+        - /etc/firewalld/policies/smoke-external.xml
+      register: firewalld_external
+
+    - name: require contribution preservation
+      ansible.builtin.assert:
+        that: firewalld_external.results | map(attribute='stat.exists') | min
+
+    - name: remove only test contributions
+      ansible.builtin.file:
+        path: "{{ item.item }}"
+        state: absent
+      loop: "{{ firewalld_external.results }}"
+      notify: firewalld reload

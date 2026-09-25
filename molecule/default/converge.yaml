@@ -1,5 +1,13 @@
 ---
-- name: Converge
+- name: converge
   hosts: all
+  pre_tasks:
+    - name: install systemd tooling for image testing
+      ansible.builtin.package:
+        name:
+          - systemd
+          - systemd-udev
+          - procps-ng
+        state: present
   roles:
     - role: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"

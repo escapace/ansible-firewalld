@@ -1,0 +1,19 @@
+---
+argument_specs:
+  main:
+    short_description: prepare a persistent el10 host firewall
+    options:
+      firewalld_default_zone_target:
+        type: str
+        default: DROP
+        choices: [DROP, REJECT]
+        description: default public zone disposition for otherwise unmatched traffic
+      firewalld_strict_forward_ports:
+        type: bool
+        default: false
+        description: require firewalld authorization for externally created dnat publications
+      firewalld_ipv6_rpfilter:
+        type: str
+        default: loose
+        choices: [strict, loose, strict-forward, loose-forward, "no"]
+        description: ipv6 reverse path filtering mode

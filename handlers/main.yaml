@@ -1,0 +1,42 @@
+---
+- name: firewalld validate final configuration
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate.yaml"
+  listen:
+    - firewalld reload
+    - firewalld apply ipv4 sysctls
+    - firewalld apply ipv6 sysctls
+
+- name: firewalld gather fresh service facts
+  ansible.builtin.service_facts:
+  listen:
+    - firewalld reload
+    - firewalld apply ipv4 sysctls
+    - firewalld apply ipv6 sysctls
+
+- name: firewalld apply notified ipv4 sysctls on an active host
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/apply-sysctls.yaml"
+  vars:
+    firewalld_sysctl_family: ipv4
+  when:
+    - not ansible_check_mode
+    - (ansible_facts.services | default({})).get('firewalld.service', {}).get('state') == 'running'
+  listen: firewalld apply ipv4 sysctls
+
+- name: firewalld apply notified ipv6 sysctls on an active host
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/apply-sysctls.yaml"
+  vars:
+    firewalld_sysctl_family: ipv6
+  when:
+    - not ansible_check_mode
+    - (ansible_facts.services | default({})).get('firewalld.service', {}).get('state') == 'running'
+  listen: firewalld apply ipv6 sysctls
+
+# The CLI returns the operation result; the packaged systemd reload only signals.
+- name: firewalld reload active service synchronously
+  ansible.builtin.command:
+    argv: [firewall-cmd, --reload]
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - (ansible_facts.services | default({})).get('firewalld.service', {}).get('state') == 'running'
+  listen: firewalld reload

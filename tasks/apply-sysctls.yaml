@@ -1,0 +1,19 @@
+---
+- name: inspect the host sysctl subtree for the notified family
+  ansible.builtin.stat:
+    path: "/proc/sys/net/{{ firewalld_sysctl_family }}"
+  register: firewalld_sysctl_runtime
+
+- name: report inactive controls for the notified family
+  ansible.builtin.debug:
+    msg: "{{ firewalld_sysctl_family }} sysctl subtree is absent; controls for this family are inactive"
+  when: not (firewalld_sysctl_runtime.stat.isdir | default(false))
+
+- name: apply only the owned sysctl file with strict error handling
+  ansible.builtin.command:
+    argv:
+      - /usr/lib/systemd/systemd-sysctl
+      - --strict
+      - "/etc/sysctl.d/90-firewalld-{{ firewalld_sysctl_family }}.conf"
+  changed_when: true
+  when: firewalld_sysctl_runtime.stat.isdir | default(false)

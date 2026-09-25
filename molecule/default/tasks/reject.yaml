@@ -1,0 +1,57 @@
+---
+- name: record owned files before rejected candidate
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/firewalld/firewalld.conf
+    - /etc/firewalld/zones/public.xml
+    - /etc/sysctl.d/90-firewalld-ipv4.conf
+    - /etc/sysctl.d/90-firewalld-ipv6.conf
+  register: firewalld_before_rejection
+
+- name: prepare invalid foreign object
+  ansible.builtin.copy:
+    dest: /etc/firewalld/policies/smoke-invalid.xml
+    content: >-
+      {{ '<policy>' if firewalld_rejection_case == 'malformed' else
+         '<policy><ingress-zone name="public"/><egress-zone name="HOST"/><service name="not-defined-smoke"/></policy>' }}
+    mode: "0644"
+  when: firewalld_rejection_case in ['malformed', 'unresolved']
+
+- name: initialize rejection result
+  ansible.builtin.set_fact:
+    firewalld_rejected: false
+
+- name: reject invalid candidate
+  block:
+    - name: try invalid role input
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+      vars:
+        firewalld_default_zone_target: "{{ 'ACCEPT' if firewalld_rejection_case == 'target' else 'DROP' }}"
+        firewalld_strict_forward_ports: "{{ 'not-a-bool' if firewalld_rejection_case == 'boolean' else false }}"
+        firewalld_ipv6_rpfilter: "{{ 'invalid' if firewalld_rejection_case == 'rpfilter' else 'loose' }}"
+  rescue:
+    - name: record explicit rejection
+      ansible.builtin.set_fact:
+        firewalld_rejected: true
+  always:
+    - name: remove only invalid test object
+      ansible.builtin.file:
+        path: /etc/firewalld/policies/smoke-invalid.xml
+        state: absent
+
+- name: read files after rejection
+  ansible.builtin.stat:
+    path: "{{ item.item }}"
+  loop: "{{ firewalld_before_rejection.results }}"
+  register: firewalld_after_rejection
+
+- name: require rejection without publication
+  ansible.builtin.assert:
+    that:
+      - firewalld_rejected
+      - item.stat.checksum == item.item.stat.checksum
+  loop: "{{ firewalld_after_rejection.results }}"
+  loop_control:
+    label: "{{ item.item.item }}"

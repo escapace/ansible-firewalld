@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- {{ ansible_managed }} -->
+<zone target="{{ '%%REJECT%%' if firewalld_default_zone_target == 'REJECT' else 'DROP' }}">
+  <short>public</short>
+  <description>Host baseline; other owners contribute complete native objects.</description>
+  <service name="dhcpv6-client"/>
+{% for icmp_type in ['destination-unreachable', 'time-exceeded', 'parameter-problem', 'echo-request', 'echo-reply'] %}
+  <rule family="ipv4">
+    <icmp-type name="{{ icmp_type }}"/>
+    <accept/>
+  </rule>
+{% endfor %}
+{% for icmp_type in ['destination-unreachable', 'packet-too-big', 'time-exceeded', 'parameter-problem', 'echo-request', 'echo-reply', 'mld-listener-query', 'mld-listener-report'] %}
+  <rule family="ipv6">
+    <icmp-type name="{{ icmp_type }}"/>
+    <accept/>
+  </rule>
+{% endfor %}
+</zone>
