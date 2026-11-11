@@ -2,13 +2,13 @@
 - name: record owned files before rejected candidate
   ansible.builtin.stat:
     path: "{{ item }}"
+  register: firewalld_before_rejection
+
   loop:
     - /etc/firewalld/firewalld.conf
     - /etc/firewalld/zones/public.xml
     - /etc/sysctl.d/90-firewalld-ipv4.conf
     - /etc/sysctl.d/90-firewalld-ipv6.conf
-  register: firewalld_before_rejection
-
 - name: prepare invalid foreign object
   ansible.builtin.copy:
     dest: /etc/firewalld/policies/smoke-invalid.xml
@@ -44,9 +44,9 @@
 - name: read files after rejection
   ansible.builtin.stat:
     path: "{{ item.item }}"
-  loop: "{{ firewalld_before_rejection.results }}"
   register: firewalld_after_rejection
 
+  loop: "{{ firewalld_before_rejection.results }}"
 - name: require rejection without publication
   ansible.builtin.assert:
     that:

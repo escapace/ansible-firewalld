@@ -4,9 +4,9 @@
     state: directory
     prefix: ansible-firewalld-
   register: firewalld_workspace
-  check_mode: false
   changed_when: false
 
+  check_mode: false
 - name: assemble and publish configuration
   block:
     - name: create candidate root
@@ -14,9 +14,9 @@
         path: "{{ firewalld_workspace.path }}/firewalld"
         state: directory
         mode: "0700"
-      check_mode: false
       changed_when: false
 
+      check_mode: false
     - name: preserve existing local objects in the candidate
       ansible.builtin.command:
         argv:
@@ -24,24 +24,24 @@
           - --archive
           - /etc/firewalld/.
           - "{{ firewalld_workspace.path }}/firewalld/"
-      check_mode: false
       changed_when: false
 
+      check_mode: false
     - name: ensure candidate zone directory exists
       ansible.builtin.file:
         path: "{{ firewalld_workspace.path }}/firewalld/zones"
         state: directory
         mode: "0755"
-      check_mode: false
       changed_when: false
 
+      check_mode: false
     - name: inspect owned destinations without following links
       ansible.builtin.stat:
         path: "{{ item.path }}"
         follow: false
-      loop: "{{ firewalld_owned_files }}"
       register: firewalld_previous
 
+      loop: "{{ firewalld_owned_files }}"
     - name: reject nonregular owned destinations
       ansible.builtin.assert:
         that: not item.stat.exists or (item.stat.isreg | default(false))
@@ -57,13 +57,13 @@
           - --archive
           - "{{ item.item.path }}"
           - "{{ firewalld_workspace.path }}/backup-{{ item.item.template }}"
+      changed_when: false
+
+      check_mode: false
       loop: "{{ firewalld_previous.results }}"
       loop_control:
         label: "{{ item.item.path }}"
       when: item.stat.exists
-      check_mode: false
-      changed_when: false
-
     - name: render only the owned candidate files
       ansible.builtin.template:
         src: "{{ item.template }}"
@@ -71,10 +71,10 @@
         owner: root
         group: root
         mode: "0644"
-      loop: "{{ firewalld_owned_files }}"
-      check_mode: false
       changed_when: false
 
+      check_mode: false
+      loop: "{{ firewalld_owned_files }}"
     - name: validate assembled candidate before publication
       ansible.builtin.include_tasks: validate.yaml
       vars:
@@ -90,8 +90,8 @@
             owner: root
             group: root
             mode: "0644"
-          loop: "{{ firewalld_owned_files }}"
           register: firewalld_publication
+          loop: "{{ firewalld_owned_files }}"
       rescue:
         - name: restore preexisting owned files
           ansible.builtin.copy:
@@ -127,18 +127,18 @@
     - name: notify changed persistent inputs
       ansible.builtin.debug:
         msg: "published {{ item.item.path }}"
+      changed_when: true
       loop: "{{ firewalld_publication.results }}"
       loop_control:
         label: "{{ item.item.path }}"
       when:
         - item.changed
         - not ansible_check_mode
-      changed_when: true
       notify: "{{ item.item.topic }}"
   always:
     - name: remove candidate and recovery workspace
       ansible.builtin.file:
         path: "{{ firewalld_workspace.path }}"
         state: absent
-      check_mode: false
       changed_when: false
+      check_mode: false
